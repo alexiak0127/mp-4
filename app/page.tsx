@@ -1,65 +1,104 @@
-import Image from "next/image";
+import getData from "../lib/getArtworks";
+import Artwork from "./components/Artwork";
 
-export default function Home() {
+// render fresh
+export const dynamic = "force-dynamic";
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string }>;
+}) {
+  // wait for search params
+  const params = await searchParams;
+  // get search term and page number
+  const query = (params.q || "").trim();
+  const page = Number(params.page) || 1;
+
+  // fetch data from Harvard API
+  // if there isn't a query, return empty results
+  const data = query
+    ? await getData(query, page)
+    : { ok: true, records: [], totalrecords: 0 };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div>
+      <h2 className="text-3xl font-semibold mb-1">Harvard Art Museums</h2>
+      <p className="text-base text-slate-500 mb-4">
+        Exploring the Harvard Art Museums collection via API
+      </p>
+
+      {/* search form */}
+      <form className="flex flex-col gap-2 mb-5" method="get">
+        <label htmlFor="keyword" className="text-base font-medium text-slate-700">
+          Keyword
+        </label>
+        <div className="flex gap-2">
+          <input
+            id="keyword"
+            name="q"
+            defaultValue={query}
+            className="flex-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400"
+            placeholder="Type something and hit Search (monet, portrait, landscape...)"
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Search
+          </button>
+        </div>
+      </form>
+
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold">Results</h3>
+
+        {/* different result states */}
+        {!query ? (
+          // hasn't searched yet
+          <p className="text-sm text-slate-400">
+            Results will show up here
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        ) : !data.ok ? (
+          // error from API
+          <p className="text-sm text-red-500">{data.error}</p>
+        ) : data.records.length === 0 ? (
+          // no results found
+          <p className="text-sm text-slate-400">
+            No artworks found for “{query}”.
+          </p>
+        ) : (
+          // results found
+          <div className="grid gap-4 md:grid-cols-3">
+            {data.records.map((art: any, index: number) => (
+              <Artwork key={art.id ?? index} art={art} />
+            ))}
+          </div>
+        )}
+
+        {/* pagination - only when we have actual results */}
+        {query && data.ok && data.records.length > 0 ? (
+          <div className="mt-3 flex items-center gap-3 text-sm text-slate-600">
+            {page > 1 ? (
+              <a
+                href={`/?q=${encodeURIComponent(query)}&page=${page - 1}`}
+                className="text-slate-900 hover:underline"
+              >
+                ← 
+              </a>
+            ) : null}
+            <span>Page {page}</span>
+            {data.records.length >= 12 ? (
+              <a
+                href={`/?q=${encodeURIComponent(query)}&page=${page + 1}`}
+                className="text-slate-900 hover:underline"
+              >
+                →
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
